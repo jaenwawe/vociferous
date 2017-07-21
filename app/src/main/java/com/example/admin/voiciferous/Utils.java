@@ -24,10 +24,17 @@ import java.util.List;
 
 public final class Utils {
 
-    private static final String BASE_SEARCH_REQUEST_URL = "https://www.googleapis.com/customsearch/v1?key=AIzaSyCQZg_RfycP2ZzF6yCPc5k7ugXqs1L6rmg&cx=001324367313203204672:b6hagt4hjyo";
+    private static final String GOOGLE_BASE_SEARCH_REQUEST_URL = "https://www.googleapis.com/customsearch/v1?key=AIzaSyCQZg_RfycP2ZzF6yCPc5k7ugXqs1L6rmg&cx=001324367313203204672:b6hagt4hjyo";
+    private static final String YOUTUBE_BASE_SEARCH_REQUEST_URL = "https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=10&key=AIzaSyCQZg_RfycP2ZzF6yCPc5k7ugXqs1L6rmg";
+
+    private static final int GOOGLE = 0;
+    private static final int YOUTUBE = 1;
 
     /** Tag for the log messages */
     private static final String LOG_TAG = Utils.class.getSimpleName();
+
+    // switch between different search engines
+    private static int searchEngineType = YOUTUBE;
 
     // empty constructor
     private Utils() {
@@ -39,6 +46,8 @@ public final class Utils {
 
         // Perform HTTP request to the URL and receive a JSON response back
         String jsonResponse = null;
+
+
 
         try {
             jsonResponse = makeHttpRequest(url);
@@ -78,10 +87,10 @@ public final class Utils {
             return null;
         }
 
-        // Create an empty ArrayList that we can start adding earthquakes to
-        List<SearchResult> earthquakes = new ArrayList<>();
+        // Create an empty ArrayList that we can start adding search results to
+        List<SearchResult> searchResultList = new ArrayList<>();
 
-        // Try to parse the JSON response strnog. If there's a problem with the way the JSON
+        // Try to parse the JSON response string. If there's a problem with the way the JSON
         // is formatted, a JSONException exception object will be thrown.
         // Catch the exception so the app doesn't crash, and print the error message to the logs.
         try {
@@ -89,40 +98,75 @@ public final class Utils {
             // Create a JSONObject from the JSON response string
             JSONObject baseJsonResponse = new JSONObject(searchResultJSON);
 
-            // Extract the JSONArray associated with the key called "items",
-            // which represents a list of search result items
-            JSONArray searchResultArray = baseJsonResponse.getJSONArray("items");
+            if (searchEngineType == GOOGLE) {
+                // Extract the JSONArray associated with the key called "items",
+                // which represents a list of search result items
+                JSONArray searchResultArray = baseJsonResponse.getJSONArray("items");
 
-            // For each earthquake in the earthquakeArray, create an {@link Earthquake} object
-            for (int i = 0; i < searchResultArray.length(); i++) {
-                // Get search result JSONObject at position i
-                JSONObject currentSearchResult = searchResultArray.getJSONObject(i);
+                // For each search result in the searchResultArray, create an {@link SearchResult} object
+                for (int i = 0; i < searchResultArray.length(); i++) {
+                    // Get search result JSONObject at position i
+                    JSONObject currentSearchResult = searchResultArray.getJSONObject(i);
 
-                // Get properties JSONObject
-                String title = currentSearchResult.getString("title");
+                    // Get properties JSONObject
+                    String title = currentSearchResult.getString("title");
 
-                // Extract the value for the key called "mag"
-                String url = currentSearchResult.getString("link");
+                    // Extract the value for the key called "mag"
+                    String url = currentSearchResult.getString("link");
 
-                // Extract "place" for the location
-                String snippet = currentSearchResult.getString("snippet");
+                    // Extract "place" for the location
+                    String snippet = currentSearchResult.getString("snippet");
 
-                // Create SearchResult java object from title, url, and snippet
-                SearchResult searchResult = new SearchResult(title, url, snippet);
+                    // Create SearchResult java object from title, url, and snippet
+                    SearchResult searchResult = new SearchResult(title, url, snippet);
 
-                // Add earthquake to list of earthquakes
-                earthquakes.add(searchResult);
+                    // Add earthquake to list of earthquakes
+                    searchResultList.add(searchResult);
+                }
+
+            } else if (searchEngineType == YOUTUBE) {
+                // Extract the JSONArray associated with the key called "items",
+                // which represents a list of search result items
+                JSONArray searchResultArray = baseJsonResponse.getJSONArray("items");
+
+                // For each search result in the searchResultArray, create an {@link SearchResult} object
+                for (int i = 0; i < searchResultArray.length(); i++) {
+                    // Get search result JSONObject at position i
+                    JSONObject currentSearchResult = searchResultArray.getJSONObject(i);
+
+                    // Extract the value for the key "videoId"
+                    String videoId = currentSearchResult.getJSONObject("id").getString("videoId");
+
+                    // this snippet is not the same as the description, but it does
+                    // contain the search title and description
+                    JSONObject searchSnippet = currentSearchResult.getJSONObject("snippet");
+
+                    // Extract the value for the key called "title"
+                    String title = searchSnippet.getString("title");
+
+                    // Extract the value for the key called "description"
+                    String description = searchSnippet.getString("description");
+
+                    // Put together the youtube URL
+                    String url = "https://www.youtube.com/watch?v=" + videoId;
+
+                    // Create SearchResult java object from title, url, and snippet
+                    SearchResult searchResult = new SearchResult(title, url, description);
+
+                    // Add earthquake to list of earthquakes
+                    searchResultList.add(searchResult);
+                }
             }
 
         } catch (JSONException e) {
             // If an error is thrown when executing any of the above statements in the "try" block,
             // catch the exception here, so the app doesn't crash. Print a log message
             // with the message from the exception.
-            Log.e("QueryUtils", "Problem parsing the earthquake JSON results", e);
+            Log.e("QueryUtils", "Problem parsing the search JSON results", e);
         }
 
         // Return the list of earthquakes
-        return earthquakes;
+        return searchResultList;
     }
 
     /**
@@ -192,21 +236,37 @@ public final class Utils {
 
     public static String createSearchRequestUrl(List<String> searchTermList) {
 
-        String searchResultUrl = BASE_SEARCH_REQUEST_URL + "&q=";
+        String searchResultUrl = "";
+        if (searchEngineType == GOOGLE) {
+            searchResultUrl = GOOGLE_BASE_SEARCH_REQUEST_URL + "&q=";
 
-        String queryString = "";
+            String queryString = "";
 
-        // get all the key words and concat them together..
-        queryString = searchTermList.get(0);
-        for (int m = 1; m < searchTermList.size(); m++) {
-            queryString = queryString + " " + searchTermList.get(m);
+            // get all the key words and concat them together..
+            queryString = searchTermList.get(0);
+            for (int m = 1; m < searchTermList.size(); m++) {
+                queryString = queryString + " " + searchTermList.get(m);
+            }
+
+            searchResultUrl = searchResultUrl + "{" + queryString + "}&alt=json";
         }
+        else if (searchEngineType == YOUTUBE) {
+            searchResultUrl = YOUTUBE_BASE_SEARCH_REQUEST_URL +"&q=";
 
-        searchResultUrl = searchResultUrl + "{" + queryString + "}&alt=json";
+            String queryString = "";
+
+            // get all the key words and concat them together..
+            queryString = searchTermList.get(0);
+            for (int m = 1; m < searchTermList.size(); m++) {
+                queryString = queryString + "+" + searchTermList.get(m);
+            }
+
+            searchResultUrl = searchResultUrl + queryString;
+
+        }
 
         return searchResultUrl;
     }
-
 
 
 }

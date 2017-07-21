@@ -85,12 +85,11 @@ public class MainActivity extends AppCompatActivity {
             TextView snippetTextView = (TextView) findViewById(R.id.snippet);
 
             for (int m = 0; m < searchResultList.size(); m++) {
-                titleTextView.append(searchResultList.get(m).getTitle() + "\n");
+                titleTextView.append("#" + m + ": " + searchResultList.get(m).getTitle() + "\n");
 
-                urlTextView.append(searchResultList.get(m).getUrl() + "\n");
+                urlTextView.append("#" + m + ": " + searchResultList.get(m).getUrl() + "\n");
 
-                snippetTextView.append(searchResultList.get(m).getSnippet() + "\n");
-
+                snippetTextView.append("#" + m + ": " + searchResultList.get(m).getSnippet() + "\n");
             }
 
         }
